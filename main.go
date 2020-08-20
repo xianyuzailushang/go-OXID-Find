@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 	"time"
 )
 
-var wg sync.WaitGroup
+//var wg sync.WaitGroup
+var c = make(chan int,200)
 
 func getIPList(addr string) ([]string, error) {
-	defer wg.Done()
+	//defer wg.Done()
+	defer func(){<-c}()
 	timeout := 5000 * time.Millisecond
 	d := net.Dialer{Timeout: timeout}
 	tcpCoon, err := d.Dial("tcp", addr+":135") //建立连接
@@ -28,7 +29,7 @@ func getIPList(addr string) ([]string, error) {
 		return nil, err
 	}
 	recvData := make([]byte, 4096)
-	readTimeout := 5 * time.Second
+	readTimeout := 10 * time.Second
 	err = tcpCoon.SetReadDeadline(time.Now().Add(readTimeout))
 	n, err = tcpCoon.Read(recvData)
 	if err != nil {
@@ -92,8 +93,8 @@ func usage() {
 }
 
 func init() {
-	flag.StringVar(&targetIP, "t", "", "CIDR")
 	flag.BoolVar(&help, "h", false, "Show this help")
+	flag.StringVar(&targetIP, "t", "", "CIDR")
 	flag.Usage = usage
 }
 
@@ -106,10 +107,12 @@ func main() {
 	fmt.Println(time.Now())
 	ip, _ := Hosts(targetIP)
 	//fmt.Println(ip)
+
 	for _, value := range ip {
-		wg.Add(1)
+		c <- 1
+		//wg.Add(1)
 		go getIPList(value)
 	}
-	wg.Wait()
+	//wg.Wait()
 	fmt.Println(time.Now())
 }
